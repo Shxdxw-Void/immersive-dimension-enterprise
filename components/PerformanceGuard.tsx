@@ -6,8 +6,6 @@ type NavigatorConnection = {
   saveData?: boolean;
 };
 
-type IdleHandle = number;
-
 export default function PerformanceGuard() {
   useEffect(() => {
     const html = document.documentElement;
@@ -79,36 +77,17 @@ export default function PerformanceGuard() {
       });
     }
 
-    const cleanupWillChange = () => {
+    const cleanupTimer = window.setTimeout(() => {
       const animated = document.querySelectorAll<HTMLElement>("[style*='will-change']");
 
       animated.forEach((el) => {
         el.style.willChange = "auto";
       });
-    };
-
-    let idleHandle: IdleHandle;
-
-    if ("requestIdleCallback" in window) {
-      idleHandle = (window as Window & {
-        requestIdleCallback: (callback: () => void) => IdleHandle;
-      }).requestIdleCallback(cleanupWillChange);
-    } else {
-      idleHandle = window.setTimeout(cleanupWillChange, 500);
-    }
+    }, 500);
 
     return () => {
       observers.forEach((observer) => observer.disconnect());
-
-      if ("cancelIdleCallback" in window) {
-        (
-          window as Window & {
-            cancelIdleCallback: (handle: IdleHandle) => void;
-          }
-        ).cancelIdleCallback(idleHandle);
-      } else {
-        window.clearTimeout(idleHandle);
-      }
+      window.clearTimeout(cleanupTimer);
     };
   }, []);
 

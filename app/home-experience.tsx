@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import LazySectionMount from "@/components/LazySectionMount";
@@ -164,13 +163,10 @@ export default function HomeExperience() {
         style={{ backgroundImage: activeTone.swatch }}
       >
         {profile?.avatarUrl ? (
-          <Image
+          <img
             src={profile.avatarUrl}
             alt={`${profile.name} profile`}
             className="imdm-profile-trigger__image avatar"
-            fill
-            sizes="54px"
-            unoptimized
           />
         ) : (
           <span>{(profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()}</span>
@@ -186,13 +182,10 @@ export default function HomeExperience() {
               style={{ backgroundImage: activeTone.swatch }}
             >
               {profile?.avatarUrl ? (
-                <Image
+                <img
                   src={profile.avatarUrl}
                   alt={`${profile.name} profile`}
                   className="imdm-profile-card__image avatar"
-                  fill
-                  sizes="54px"
-                  unoptimized
                 />
               ) : (
                 (profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()

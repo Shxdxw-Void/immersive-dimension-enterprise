@@ -1,5 +1,3 @@
-"use client";
-
 export type ProfileTone = "solar" | "glacier" | "ember" | "violet";
 
 export type ProfileRecord = {
