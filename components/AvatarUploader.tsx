@@ -17,6 +17,7 @@ export default function AvatarUploader({
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
+  const sourceObjectUrlRef = useRef<string | null>(null);
 
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialImageUrl ?? null);
@@ -25,8 +26,11 @@ export default function AvatarUploader({
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const MIN_SIZE = 150;
+  const MIN_DIMENSION = 300;
+  const MAX_DIMENSION = 500;
 
   const dragStartRef = useRef({
     mouseX: 0,
@@ -45,6 +49,10 @@ export default function AvatarUploader({
       if (previewObjectUrlRef.current) {
         URL.revokeObjectURL(previewObjectUrlRef.current);
       }
+
+      if (sourceObjectUrlRef.current) {
+        URL.revokeObjectURL(sourceObjectUrlRef.current);
+      }
     },
     [],
   );
@@ -62,27 +70,64 @@ export default function AvatarUploader({
     setPreviewUrl(nextUrl);
   };
 
+  const resetSourceImage = () => {
+    if (sourceObjectUrlRef.current) {
+      URL.revokeObjectURL(sourceObjectUrlRef.current);
+      sourceObjectUrlRef.current = null;
+    }
+
+    setImageSrc(null);
+    setImgEl(null);
+  };
+
   const handleFileChange = (file?: File) => {
     if (!file) {
       return;
     }
 
+    setUploadError("");
+
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      alert("Please upload a JPG, PNG, or WebP image.");
+      setUploadError("Please upload a JPG, PNG, or WebP image.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImageSrc(reader.result as string);
+    const nextObjectUrl = URL.createObjectURL(file);
+    const image = new window.Image();
+
+    image.onload = () => {
+      const { width, height } = image;
+
+      if (
+        width < MIN_DIMENSION ||
+        height < MIN_DIMENSION ||
+        width > MAX_DIMENSION ||
+        height > MAX_DIMENSION
+      ) {
+        URL.revokeObjectURL(nextObjectUrl);
+        setUploadError(
+          "Your profile image must be between 300x300 px and 500x500 px.",
+        );
+        return;
+      }
+
+      resetSourceImage();
+      sourceObjectUrlRef.current = nextObjectUrl;
+      setImageSrc(nextObjectUrl);
     };
-    reader.readAsDataURL(file);
+
+    image.onerror = () => {
+      URL.revokeObjectURL(nextObjectUrl);
+      setUploadError("That image could not be read. Please try a different file.");
+    };
+
+    image.src = nextObjectUrl;
   };
 
   const onImageLoad = (img: HTMLImageElement) => {
     setImgEl(img);
     const shortestSide = Math.min(img.naturalWidth, img.naturalHeight);
-    const initialSize = Math.max(shortestSide * 0.7, MIN_SIZE);
+    const initialSize = Math.max(shortestSide, MIN_SIZE);
 
     setCrop({
       x: (img.naturalWidth - initialSize) / 2,
@@ -222,19 +267,20 @@ export default function AvatarUploader({
     const file = await generateAvatarFile();
 
     if (!file) {
+      setUploadError("Choose an image that matches the size rules before previewing.");
       return;
     }
 
     const objectUrl = URL.createObjectURL(file);
     updatePreview(objectUrl, true);
-    setImageSrc(null);
-    setImgEl(null);
+    resetSourceImage();
   };
 
   const handleSave = async () => {
     const file = await generateAvatarFile();
 
     if (!file) {
+      setUploadError("Choose an image that matches the size rules before saving.");
       return;
     }
 
@@ -254,8 +300,8 @@ export default function AvatarUploader({
       }
     }
 
-    setImageSrc(null);
-    setImgEl(null);
+    resetSourceImage();
+    setUploadError("");
   };
 
   return (
@@ -266,8 +312,8 @@ export default function AvatarUploader({
       <div className="mb-4">
         <h2 className="font-display text-2xl font-semibold">Profile Photo</h2>
         <p className="mt-1 text-sm text-white/65">
-          Upload a square-friendly image. Best results: centered subject, at least
-          300 x 300.
+          Upload a JPG, PNG, or WebP image that is between 300x300 px and 500x500
+          px.
         </p>
       </div>
 
@@ -297,9 +343,9 @@ export default function AvatarUploader({
           <button
             type="button"
             onClick={async () => {
-              setImageSrc(null);
-              setImgEl(null);
+              resetSourceImage();
               updatePreview(null);
+              setUploadError("");
               if (onRemove) {
                 await onRemove();
               }
@@ -318,6 +364,8 @@ export default function AvatarUploader({
           onChange={(e) => handleFileChange(e.target.files?.[0])}
         />
       </div>
+
+      {uploadError ? <p className="mb-4 text-sm text-[#fecaca]">{uploadError}</p> : null}
 
       {imageSrc ? (
         <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-4">
@@ -365,6 +413,7 @@ export default function AvatarUploader({
             <button
               type="button"
               onClick={handlePreview}
+              disabled={!imgEl}
               className="rounded-full border border-white/14 px-4 py-2 text-sm font-semibold text-white"
             >
               Preview
@@ -373,7 +422,7 @@ export default function AvatarUploader({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !imgEl}
               className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#08070f] disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save Avatar"}
