@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import LazySectionMount from "@/components/LazySectionMount";
 import {
   loadStoredProfile,
   PROFILE_UPDATED_EVENT,
@@ -9,6 +12,17 @@ import {
   type ProfileRecord,
   type ProfileTone,
 } from "@/lib/profile-storage";
+
+const HomeSecondarySections = dynamic(() => import("./home-secondary-sections"), {
+  ssr: false,
+  loading: () => (
+    <div className="imdm-lazy-fallback perf-contained" data-heavy="true">
+      <div className="imdm-lazy-fallback__card blur-heavy" />
+      <div className="imdm-lazy-fallback__card blur-heavy" />
+      <div className="imdm-lazy-fallback__card blur-heavy" />
+    </div>
+  ),
+});
 
 const PROFILE_TONES: Array<{
   id: ProfileTone;
@@ -134,9 +148,9 @@ export default function HomeExperience() {
   return (
     <main className="imdm-shell">
       <div className="imdm-background-grid" />
-      <div className="imdm-background-orb imdm-background-orb-one" />
-      <div className="imdm-background-orb imdm-background-orb-two" />
-      <div className="imdm-background-orb imdm-background-orb-three" />
+      <div className="imdm-background-orb imdm-background-orb-one blur-heavy" data-heavy="true" />
+      <div className="imdm-background-orb imdm-background-orb-two blur-heavy" data-heavy="true" />
+      <div className="imdm-background-orb imdm-background-orb-three blur-heavy" data-heavy="true" />
 
       <button
         type="button"
@@ -150,10 +164,12 @@ export default function HomeExperience() {
         style={{ backgroundImage: activeTone.swatch }}
       >
         {profile?.avatarUrl ? (
-          <img
+          <Image
             src={profile.avatarUrl}
             alt={`${profile.name} profile`}
             className="imdm-profile-trigger__image avatar"
+            fill
+            sizes="54px"
           />
         ) : (
           <span>{(profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()}</span>
@@ -161,7 +177,7 @@ export default function HomeExperience() {
       </button>
 
       {isProfileOpen ? (
-        <aside className="imdm-profile-card">
+        <aside className="imdm-profile-card glass-heavy" data-heavy="true">
           <p className="imdm-eyebrow">Your Profile</p>
           <div className="imdm-profile-card__identity">
             <div
@@ -169,10 +185,12 @@ export default function HomeExperience() {
               style={{ backgroundImage: activeTone.swatch }}
             >
               {profile?.avatarUrl ? (
-                <img
+                <Image
                   src={profile.avatarUrl}
                   alt={`${profile.name} profile`}
                   className="imdm-profile-card__image avatar"
+                  fill
+                  sizes="54px"
                 />
               ) : (
                 (profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()
@@ -207,7 +225,7 @@ export default function HomeExperience() {
         </aside>
       ) : null}
 
-      <section className="imdm-hero">
+      <section className="imdm-hero perf-contained">
         <header className="imdm-header">
           <div>
             <p className="imdm-brand">Immersive Dimensions</p>
@@ -267,7 +285,7 @@ export default function HomeExperience() {
             </dl>
           </section>
 
-          <aside className="imdm-feature-card">
+          <aside className="imdm-feature-card glass-heavy" data-heavy="true">
             <p className="imdm-eyebrow">First Impression</p>
             <h2>Start with a profile that feels like yours.</h2>
             <p>
@@ -291,82 +309,28 @@ export default function HomeExperience() {
         </div>
       </section>
 
-      <section id="what-we-build" className="imdm-section">
-        <div className="imdm-section__intro">
-          <p className="imdm-eyebrow">What We Build</p>
-          <h2>Designed to feel sharp, immersive, and worth staying on.</h2>
-        </div>
-        <div className="imdm-card-grid">
-          <article className="imdm-info-card">
-            <p className="imdm-info-card__title">Brand Homepages</p>
-            <p>
-              Landing pages that feel cinematic instead of generic, with stronger
-              visual identity and cleaner message flow.
-            </p>
-          </article>
-          <article className="imdm-info-card">
-            <p className="imdm-info-card__title">Digital Identity</p>
-            <p>
-              Bold presentation, focused typography, and layouts that make a brand
-              feel bigger the moment someone lands.
-            </p>
-          </article>
-          <article className="imdm-info-card">
-            <p className="imdm-info-card__title">Interactive Foundations</p>
-            <p>
-              Clean UI structure now, with room to grow into accounts, AI, shop
-              systems, and more once the core feels right.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="signature" className="imdm-section imdm-section--split">
-        <div className="imdm-section__intro">
-          <p className="imdm-eyebrow">Signature Style</p>
-          <h2>
-            A cleaner rebuild starts with one strong homepage, not a messy
-            everything-app.
-          </h2>
-          <p>
-            This version keeps the experience simple on purpose: one polished home,
-            one profile flow, and a foundation that can scale later without
-            collapsing into clutter.
-          </p>
-        </div>
-
-        <div className="imdm-quote-card">
-          <p>
-            The best rebuild is the one that feels intentional from the first
-            screen.
-          </p>
-          <span>Immersive Dimensions</span>
-        </div>
-      </section>
-
-      <section id="start" className="imdm-section imdm-section--cta">
-        <p className="imdm-eyebrow">Start Here</p>
-        <h2>Register once, shape the profile look you want, and build from there.</h2>
-        <p>
-          The site now starts with the homepage and a simple account entry flow.
-          We can layer in more pages later once this foundation feels right.
-        </p>
-        <button
-          type="button"
-          className="imdm-button imdm-button--solid"
-          onClick={() => {
+      <LazySectionMount
+        className="perf-contained"
+        fallback={
+          <div className="imdm-lazy-fallback perf-contained" data-heavy="true">
+            <div className="imdm-lazy-fallback__card blur-heavy" />
+            <div className="imdm-lazy-fallback__card blur-heavy" />
+            <div className="imdm-lazy-fallback__card blur-heavy" />
+          </div>
+        }
+      >
+        <HomeSecondarySections
+          onOpenRegistration={() => {
             setForm(profile ?? form);
             setFormError("");
             setIsRegisterOpen(true);
           }}
-        >
-          Open Registration
-        </button>
-      </section>
+        />
+      </LazySectionMount>
 
       {isRegisterOpen ? (
         <div className="imdm-modal">
-          <div className="imdm-modal__card">
+          <div className="imdm-modal__card glass-heavy" data-heavy="true">
             <div className="imdm-modal__header">
               <div>
                 <p className="imdm-eyebrow">Register Account</p>

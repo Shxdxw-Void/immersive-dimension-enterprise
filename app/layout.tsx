@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import PerformanceGuard from "@/components/PerformanceGuard";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${spaceGrotesk.variable} antialiased`}
       >
+        <PerformanceGuard />
         {children}
       </body>
     </html>

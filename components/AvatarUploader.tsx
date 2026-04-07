@@ -259,7 +259,10 @@ export default function AvatarUploader({
   };
 
   return (
-    <div className="w-full max-w-3xl rounded-[2rem] border border-white/12 bg-[#130f23]/90 p-6 text-white shadow-[0_30px_80px_rgba(5,4,12,0.34)] backdrop-blur-xl">
+    <div
+      className="glass-heavy perf-contained w-full max-w-3xl rounded-[2rem] border border-white/12 bg-[#130f23]/90 p-6 text-white shadow-[0_30px_80px_rgba(5,4,12,0.34)] backdrop-blur-xl"
+      data-heavy="true"
+    >
       <div className="mb-4">
         <h2 className="font-display text-2xl font-semibold">Profile Photo</h2>
         <p className="mt-1 text-sm text-white/65">
