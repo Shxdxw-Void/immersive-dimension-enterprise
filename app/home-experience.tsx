@@ -170,6 +170,7 @@ export default function HomeExperience() {
             className="imdm-profile-trigger__image avatar"
             fill
             sizes="54px"
+            unoptimized
           />
         ) : (
           <span>{(profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()}</span>
@@ -191,6 +192,7 @@ export default function HomeExperience() {
                   className="imdm-profile-card__image avatar"
                   fill
                   sizes="54px"
+                  unoptimized
                 />
               ) : (
                 (profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()

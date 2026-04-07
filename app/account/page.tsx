@@ -5,6 +5,24 @@ import { useEffect, useState } from "react";
 import AvatarUploader from "@/components/AvatarUploader";
 import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from "@/lib/profile-storage";
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Avatar read failed"));
+    };
+
+    reader.onerror = () => reject(new Error("Avatar read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AccountPage() {
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -12,36 +30,6 @@ export default function AccountPage() {
   useEffect(() => {
     setProfile(loadStoredProfile());
   }, []);
-
-  const uploadAvatar = async (file: File) => {
-    const formData = new FormData();
-    formData.append("avatar", file);
-
-    const res = await fetch("/api/upload-avatar", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      throw new Error("Upload failed");
-    }
-
-    const data = (await res.json()) as { url?: string };
-
-    if (data.url && profile) {
-      const nextProfile = {
-        ...profile,
-        avatarUrl: data.url,
-      };
-
-      saveStoredProfile(nextProfile);
-      setProfile(nextProfile);
-      setSaveError("");
-      return data.url;
-    }
-
-    return data.url;
-  };
 
   return (
     <main className="imdm-account-shell">
@@ -72,10 +60,19 @@ export default function AccountPage() {
               initialImageUrl={profile.avatarUrl ?? undefined}
               onSave={async (file) => {
                 try {
-                  return await uploadAvatar(file);
+                  const avatarUrl = await fileToDataUrl(file);
+                  const nextProfile = {
+                    ...profile,
+                    avatarUrl,
+                  };
+
+                  saveStoredProfile(nextProfile);
+                  setProfile(nextProfile);
+                  setSaveError("");
+                  return avatarUrl;
                 } catch {
-                  setSaveError("The avatar upload did not finish. Please try again.");
-                  throw new Error("Upload failed");
+                  setSaveError("The avatar could not be saved. Please try again.");
+                  throw new Error("Avatar save failed");
                 }
               }}
               onRemove={() => {
