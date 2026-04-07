@@ -5,11 +5,18 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import LazySectionMount from "@/components/LazySectionMount";
 import {
+  clearStoredSession,
+  getLegalNameError,
+  getProfileInitials,
   loadStoredProfile,
+  loadStoredSession,
   PROFILE_UPDATED_EVENT,
   saveStoredProfile,
+  saveStoredSession,
+  SESSION_UPDATED_EVENT,
   type ProfileRecord,
   type ProfileTone,
+  type SessionRecord,
 } from "@/lib/profile-storage";
 
 const HomeSecondarySections = dynamic(() => import("./home-secondary-sections"), {
@@ -35,67 +42,142 @@ const PROFILE_TONES: Array<{
   id: ProfileTone;
   label: string;
   swatch: string;
-  highlight: string;
 }> = [
   {
     id: "solar",
     label: "Solar Gold",
     swatch: "linear-gradient(135deg, #facc15 0%, #fb7185 100%)",
-    highlight: "#fde68a",
   },
   {
     id: "glacier",
     label: "Glacier Blue",
     swatch: "linear-gradient(135deg, #67e8f9 0%, #60a5fa 100%)",
-    highlight: "#bae6fd",
   },
   {
     id: "ember",
     label: "Ember Red",
     swatch: "linear-gradient(135deg, #fb7185 0%, #f97316 100%)",
-    highlight: "#fecaca",
   },
   {
     id: "violet",
     label: "Violet Mist",
     swatch: "linear-gradient(135deg, #c084fc 0%, #818cf8 100%)",
-    highlight: "#ddd6fe",
   },
 ];
 
+type SignInForm = {
+  email: string;
+  password: string;
+};
+
+type PendingRegionVerification = {
+  code: string;
+  email: string;
+  regionKey: string;
+};
+
+async function getCurrentRegionKey() {
+  try {
+    const response = await fetch("/api/auth/location", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as { regionKey?: string };
+    return data.regionKey ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function sendRegionVerificationEmail(
+  email: string,
+  code: string,
+  regionKey: string,
+  previousRegion: string | null | undefined,
+) {
+  const response = await fetch("/api/auth/send-region-verification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      to: email,
+      code,
+      region: regionKey,
+      previousRegion: previousRegion ?? "Unknown",
+    }),
+  });
+
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(data?.error || "Verification email could not be sent.");
+  }
+}
+
 export default function HomeExperience() {
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [session, setSession] = useState<SessionRecord | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [isRegionVerifyOpen, setIsRegionVerifyOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [nameFieldError, setNameFieldError] = useState("");
+  const [signInError, setSignInError] = useState("");
+  const [verificationError, setVerificationError] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [pendingRegionVerification, setPendingRegionVerification] =
+    useState<PendingRegionVerification | null>(null);
   const [form, setForm] = useState<ProfileRecord>({
     name: "",
     email: "",
     password: "",
     tone: "violet",
     avatarUrl: null,
+    trustedRegion: null,
+  });
+  const [signInForm, setSignInForm] = useState<SignInForm>({
+    email: "",
+    password: "",
   });
 
   useEffect(() => {
-    const syncProfile = () => {
+    const syncProfileAndSession = () => {
       const existingProfile = loadStoredProfile();
+      const existingSession = loadStoredSession();
+
+      setProfile(existingProfile);
 
       if (existingProfile) {
-        setProfile(existingProfile);
         setForm(existingProfile);
+      } else {
+        clearStoredSession();
+        setSession(null);
+        setIsRegisterOpen(true);
         return;
       }
 
-      setIsRegisterOpen(true);
+      if (existingSession && existingSession.email === existingProfile.email) {
+        setSession(existingSession);
+      } else {
+        clearStoredSession();
+        setSession(null);
+      }
     };
 
-    syncProfile();
-    window.addEventListener("storage", syncProfile);
-    window.addEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+    syncProfileAndSession();
+    window.addEventListener("storage", syncProfileAndSession);
+    window.addEventListener(PROFILE_UPDATED_EVENT, syncProfileAndSession);
+    window.addEventListener(SESSION_UPDATED_EVENT, syncProfileAndSession);
 
     return () => {
-      window.removeEventListener("storage", syncProfile);
-      window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+      window.removeEventListener("storage", syncProfileAndSession);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfileAndSession);
+      window.removeEventListener(SESSION_UPDATED_EVENT, syncProfileAndSession);
     };
   }, []);
 
@@ -103,10 +185,12 @@ export default function HomeExperience() {
     () =>
       PROFILE_TONES.find(
         (tone) => tone.id === (isRegisterOpen ? form.tone : (profile?.tone ?? form.tone)),
-      ) ??
-      PROFILE_TONES[0],
+      ) ?? PROFILE_TONES[0],
     [form.tone, isRegisterOpen, profile?.tone],
   );
+
+  const headerActionLabel = profile ? (session ? null : "Sign In") : "Get Started";
+  const profileInitials = getProfileInitials(profile?.name ?? form.name ?? "ID");
 
   function updateField<Key extends keyof ProfileRecord>(
     key: Key,
@@ -116,15 +200,62 @@ export default function HomeExperience() {
       ...current,
       [key]: value,
     }));
+
+    if (key === "name") {
+      setNameFieldError(getLegalNameError(String(value)));
+    }
   }
 
-  function submitProfile() {
-    const trimmedName = form.name.trim();
-    const trimmedEmail = form.email.trim();
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function openRegister() {
+    setForm(profile ?? form);
+    setFormError("");
+    setNameFieldError("");
+    setIsSignInOpen(false);
+    setIsRegionVerifyOpen(false);
+    setIsRegisterOpen(true);
+  }
 
-    if (!trimmedName) {
-      setFormError("Please enter a name for the profile.");
+  function openSignIn() {
+    setSignInForm({
+      email: profile?.email ?? "",
+      password: "",
+    });
+    setSignInError("");
+    setVerificationError("");
+    setIsProfileOpen(false);
+    setIsRegisterOpen(false);
+    setIsSignInOpen(true);
+  }
+
+  async function completeSignIn(nextProfile: ProfileRecord) {
+    const nextSession = {
+      email: nextProfile.email,
+      signedInAt: new Date().toISOString(),
+    };
+
+    saveStoredProfile(nextProfile);
+    saveStoredSession(nextSession);
+    setProfile(nextProfile);
+    setForm(nextProfile);
+    setSession(nextSession);
+    setSignInError("");
+    setVerificationError("");
+    setIsSignInOpen(false);
+    setIsRegionVerifyOpen(false);
+    setPendingRegionVerification(null);
+    setVerificationCode("");
+  }
+
+  async function submitProfile() {
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const legalNameError = getLegalNameError(trimmedName);
+
+    setNameFieldError(legalNameError);
+
+    if (legalNameError) {
+      setFormError("Please fix the legal name field before continuing.");
       return;
     }
 
@@ -138,104 +269,197 @@ export default function HomeExperience() {
       return;
     }
 
+    const regionKey = await getCurrentRegionKey();
     const nextProfile = {
       ...form,
       name: trimmedName,
       email: trimmedEmail,
+      trustedRegion: regionKey ?? form.trustedRegion ?? null,
     };
 
-    saveStoredProfile(nextProfile);
-    setProfile(nextProfile);
-    setForm(nextProfile);
+    await completeSignIn(nextProfile);
     setFormError("");
+    setNameFieldError("");
     setIsRegisterOpen(false);
     setIsProfileOpen(false);
+  }
+
+  async function submitSignIn() {
+    if (!profile) {
+      setSignInError("No account was found on this device yet.");
+      return;
+    }
+
+    const email = signInForm.email.trim().toLowerCase();
+    const password = signInForm.password;
+
+    if (email !== profile.email.toLowerCase() || password !== profile.password) {
+      setSignInError("That email and password do not match this account.");
+      return;
+    }
+
+    const regionKey = await getCurrentRegionKey();
+
+    if (profile.trustedRegion && regionKey && profile.trustedRegion !== regionKey) {
+      try {
+        const code = `${Math.floor(100000 + Math.random() * 900000)}`;
+        await sendRegionVerificationEmail(email, code, regionKey, profile.trustedRegion);
+        setPendingRegionVerification({
+          code,
+          email,
+          regionKey,
+        });
+        setVerificationCode("");
+        setVerificationError("");
+        setIsSignInOpen(false);
+        setIsRegionVerifyOpen(true);
+        setSignInError("");
+        return;
+      } catch (error) {
+        setSignInError(
+          error instanceof Error
+            ? error.message
+            : "The verification email could not be sent.",
+        );
+        return;
+      }
+    }
+
+    await completeSignIn({
+      ...profile,
+      trustedRegion: regionKey ?? profile.trustedRegion ?? null,
+    });
+  }
+
+  async function submitRegionVerification() {
+    if (!profile || !pendingRegionVerification) {
+      setVerificationError("There is no verification request to complete.");
+      return;
+    }
+
+    if (verificationCode.trim() !== pendingRegionVerification.code) {
+      setVerificationError("That code does not match the verification email.");
+      return;
+    }
+
+    await completeSignIn({
+      ...profile,
+      trustedRegion: pendingRegionVerification.regionKey,
+    });
   }
 
   return (
     <main className="imdm-shell">
       <div className="imdm-background-grid" />
-      <div className="imdm-background-orb imdm-background-orb-one blur-heavy" data-heavy="true" />
-      <div className="imdm-background-orb imdm-background-orb-two blur-heavy" data-heavy="true" />
-      <div className="imdm-background-orb imdm-background-orb-three blur-heavy" data-heavy="true" />
-
-      <button
-        type="button"
-        aria-label="Open profile"
-        onClick={() => {
-          setForm(profile ?? form);
-          setFormError("");
-          setIsProfileOpen((current) => !current);
-        }}
-        className="imdm-profile-trigger"
-        style={{ backgroundImage: activeTone.swatch }}
-      >
-        {profile?.avatarUrl ? (
-          <img
-            src={profile.avatarUrl}
-            alt={`${profile.name} profile`}
-            className="imdm-profile-trigger__image avatar"
-          />
-        ) : (
-          <span>{(profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()}</span>
-        )}
-      </button>
-
-      {isProfileOpen ? (
-        <aside className="imdm-profile-card glass-heavy" data-heavy="true">
-          <p className="imdm-eyebrow">Your Profile</p>
-          <div className="imdm-profile-card__identity">
-            <div
-              className="imdm-profile-card__avatar"
-              style={{ backgroundImage: activeTone.swatch }}
-            >
-              {profile?.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt={`${profile.name} profile`}
-                  className="imdm-profile-card__image avatar"
-                />
-              ) : (
-                (profile?.name ?? form.name ?? "ID").slice(0, 2).toUpperCase()
-              )}
-            </div>
-            <div className="imdm-profile-card__copy">
-              <p className="imdm-profile-card__name">
-                {profile?.name || "Create Your Profile"}
-              </p>
-              <p className="imdm-profile-card__email">
-                {profile?.email || "Choose a name, email, and profile look."}
-              </p>
-            </div>
-          </div>
-          <div className="imdm-profile-card__actions">
-            <button
-              type="button"
-              onClick={() => {
-                setForm(profile ?? form);
-                setFormError("");
-                setIsRegisterOpen(true);
-                setIsProfileOpen(false);
-              }}
-              className="imdm-profile-card__button"
-            >
-              {profile ? "Customize Profile" : "Create Profile"}
-            </button>
-            <Link href="/account" className="imdm-profile-card__link">
-              Manage Photo
-            </Link>
-          </div>
-        </aside>
-      ) : null}
+      <div
+        className="imdm-background-orb imdm-background-orb-one blur-heavy"
+        data-heavy="true"
+      />
+      <div
+        className="imdm-background-orb imdm-background-orb-two blur-heavy"
+        data-heavy="true"
+      />
+      <div
+        className="imdm-background-orb imdm-background-orb-three blur-heavy"
+        data-heavy="true"
+      />
 
       <div className="relative z-[1]">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#070611]/80 backdrop-blur-xl">
+        <header className="border-b border-white/10 bg-[#070611]/92">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
-            <a href="#home" className="text-lg font-semibold tracking-wide text-white">
-              ImmersiveDimensions
-            </a>
+            <div className="imdm-header__left">
+              {profile ? (
+                <div className="imdm-profile-anchor">
+                  <button
+                    type="button"
+                    aria-label="Open profile"
+                    onClick={() => {
+                      setForm(profile);
+                      setFormError("");
+                      setNameFieldError("");
+                      setIsProfileOpen((current) => !current);
+                    }}
+                    className="imdm-profile-trigger"
+                    style={{ backgroundImage: activeTone.swatch }}
+                  >
+                    {profile.avatarUrl ? (
+                      <img
+                        src={profile.avatarUrl}
+                        alt={`${profile.name} profile`}
+                        className="imdm-profile-trigger__image avatar"
+                      />
+                    ) : (
+                      <span>{profileInitials}</span>
+                    )}
+                  </button>
 
-            <nav className="hidden items-center gap-6 md:flex" aria-label="Homepage sections">
+                  {isProfileOpen ? (
+                    <aside className="imdm-profile-card glass-heavy" data-heavy="true">
+                      <p className="imdm-eyebrow">Your Profile</p>
+                      <div className="imdm-profile-card__identity">
+                        <div
+                          className="imdm-profile-card__avatar"
+                          style={{ backgroundImage: activeTone.swatch }}
+                        >
+                          {profile.avatarUrl ? (
+                            <img
+                              src={profile.avatarUrl}
+                              alt={`${profile.name} profile`}
+                              className="imdm-profile-card__image avatar"
+                            />
+                          ) : (
+                            profileInitials
+                          )}
+                        </div>
+                        <div className="imdm-profile-card__copy">
+                          <p className="imdm-profile-card__name">{profile.name}</p>
+                          <p className="imdm-profile-card__email">{profile.email}</p>
+                        </div>
+                      </div>
+                      <div className="imdm-profile-card__actions">
+                        {session ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm(profile);
+                                setFormError("");
+                                setNameFieldError("");
+                                setIsRegisterOpen(true);
+                                setIsProfileOpen(false);
+                              }}
+                              className="imdm-profile-card__button"
+                            >
+                              Customize Profile
+                            </button>
+                            <Link href="/account" className="imdm-profile-card__link">
+                              Manage Photo
+                            </Link>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={openSignIn}
+                            className="imdm-profile-card__button"
+                          >
+                            Sign In To Continue
+                          </button>
+                        )}
+                      </div>
+                    </aside>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <a href="#home" className="text-lg font-semibold tracking-wide text-white">
+                ImmersiveDimensions
+              </a>
+            </div>
+
+            <nav
+              className="hidden items-center gap-6 md:flex"
+              aria-label="Homepage sections"
+            >
               {NAV_ITEMS.map((item) => (
                 <a
                   key={item.label}
@@ -247,17 +471,15 @@ export default function HomeExperience() {
               ))}
             </nav>
 
-            <button
-              type="button"
-              onClick={() => {
-                setForm(profile ?? form);
-                setFormError("");
-                setIsRegisterOpen(true);
-              }}
-              className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-neutral-950 shadow-lg transition hover:scale-[1.02]"
-            >
-              Get Started
-            </button>
+            {headerActionLabel ? (
+              <button
+                type="button"
+                onClick={headerActionLabel === "Sign In" ? openSignIn : openRegister}
+                className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-neutral-950 shadow-lg transition hover:scale-[1.02]"
+              >
+                {headerActionLabel}
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -285,20 +507,19 @@ export default function HomeExperience() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => {
-                    setForm(profile ?? form);
-                    setFormError("");
-                    setIsRegisterOpen(true);
-                  }}
+                  onClick={profile ? (session ? () => {} : openSignIn) : openRegister}
                   className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-center font-medium text-white transition hover:bg-white/10"
                 >
-                  Register Your Profile
+                  {profile ? (session ? "Signed In" : "Sign In") : "Register Your Profile"}
                 </button>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl" data-heavy="true">
+              <div
+                className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl"
+                data-heavy="true"
+              >
                 <p className="text-sm text-white/50">Hero card</p>
                 <h3 className="mt-3 text-xl font-semibold">Clear messaging</h3>
                 <p className="mt-3 text-sm leading-6 text-white/70">
@@ -306,7 +527,10 @@ export default function HomeExperience() {
                   explanation.
                 </p>
               </div>
-              <div className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl sm:translate-y-10" data-heavy="true">
+              <div
+                className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl sm:translate-y-10"
+                data-heavy="true"
+              >
                 <p className="text-sm text-white/50">Trust block</p>
                 <h3 className="mt-3 text-xl font-semibold">Simple credibility</h3>
                 <p className="mt-3 text-sm leading-6 text-white/70">
@@ -314,7 +538,10 @@ export default function HomeExperience() {
                   builds trust fast.
                 </p>
               </div>
-              <div className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl" data-heavy="true">
+              <div
+                className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl"
+                data-heavy="true"
+              >
                 <p className="text-sm text-white/50">Visual area</p>
                 <h3 className="mt-3 text-xl font-semibold">Media-friendly</h3>
                 <p className="mt-3 text-sm leading-6 text-white/70">
@@ -322,7 +549,10 @@ export default function HomeExperience() {
                   immersive snapshots.
                 </p>
               </div>
-              <div className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl sm:translate-y-10" data-heavy="true">
+              <div
+                className="glass-heavy rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl sm:translate-y-10"
+                data-heavy="true"
+              >
                 <p className="text-sm text-white/50">Conversion</p>
                 <h3 className="mt-3 text-xl font-semibold">Action-oriented</h3>
                 <p className="mt-3 text-sm leading-6 text-white/70">
@@ -346,11 +576,7 @@ export default function HomeExperience() {
         }
       >
         <HomeSecondarySections
-          onOpenRegistration={() => {
-            setForm(profile ?? form);
-            setFormError("");
-            setIsRegisterOpen(true);
-          }}
+          onOpenRegistration={profile ? (session ? () => {} : openSignIn) : openRegister}
         />
       </LazySectionMount>
 
@@ -369,6 +595,7 @@ export default function HomeExperience() {
                   onClick={() => {
                     setForm(profile);
                     setFormError("");
+                    setNameFieldError("");
                     setIsRegisterOpen(false);
                   }}
                 >
@@ -379,12 +606,15 @@ export default function HomeExperience() {
 
             <div className="imdm-form-grid">
               <label className="imdm-field">
-                <span>Profile Name</span>
+                <span>*Legal First and Last Name Required*</span>
                 <input
                   value={form.name}
                   onChange={(event) => updateField("name", event.target.value)}
-                  placeholder="Immersive User"
+                  placeholder="Legal first and last name"
                 />
+                {nameFieldError ? (
+                  <small className="imdm-field__error">{nameFieldError}</small>
+                ) : null}
               </label>
 
               <label className="imdm-field">
@@ -430,7 +660,7 @@ export default function HomeExperience() {
               </div>
             </div>
 
-            {profile ? (
+            {profile && session ? (
               <div className="imdm-modal__photo-cta">
                 <p className="imdm-eyebrow">Profile Picture</p>
                 <p>
@@ -452,6 +682,117 @@ export default function HomeExperience() {
                 onClick={submitProfile}
               >
                 {profile ? "Save Profile" : "Create Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSignInOpen ? (
+        <div className="imdm-modal">
+          <div className="imdm-modal__card glass-heavy" data-heavy="true">
+            <div className="imdm-modal__header">
+              <div>
+                <p className="imdm-eyebrow">Sign In</p>
+                <h2>Sign in with your email and password.</h2>
+              </div>
+              <button
+                type="button"
+                className="imdm-modal__close"
+                onClick={() => {
+                  setSignInError("");
+                  setIsSignInOpen(false);
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="imdm-form-grid imdm-form-grid--stacked">
+              <label className="imdm-field">
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={signInForm.email}
+                  onChange={(event) =>
+                    setSignInForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="name@example.com"
+                />
+              </label>
+
+              <label className="imdm-field">
+                <span>Password</span>
+                <input
+                  type="password"
+                  value={signInForm.password}
+                  onChange={(event) =>
+                    setSignInForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter your password"
+                />
+              </label>
+            </div>
+
+            {signInError ? <p className="imdm-form-error">{signInError}</p> : null}
+
+            <div className="imdm-modal__actions">
+              <button
+                type="button"
+                className="imdm-button imdm-button--solid"
+                onClick={submitSignIn}
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isRegionVerifyOpen ? (
+        <div className="imdm-modal">
+          <div className="imdm-modal__card glass-heavy" data-heavy="true">
+            <div className="imdm-modal__header">
+              <div>
+                <p className="imdm-eyebrow">Verify Region</p>
+                <h2>Check your email to finish signing in.</h2>
+              </div>
+            </div>
+
+            <div className="imdm-form-grid imdm-form-grid--stacked">
+              <p className="imdm-verify-copy">
+                A verification email was sent to{" "}
+                <strong>{pendingRegionVerification?.email || profile?.email}</strong>
+                {" "}because this sign-in appears to be from a new region or state.
+              </p>
+
+              <label className="imdm-field">
+                <span>Verification Code</span>
+                <input
+                  value={verificationCode}
+                  onChange={(event) => setVerificationCode(event.target.value)}
+                  placeholder="Enter the 6-digit code"
+                />
+              </label>
+            </div>
+
+            {verificationError ? (
+              <p className="imdm-form-error">{verificationError}</p>
+            ) : null}
+
+            <div className="imdm-modal__actions">
+              <button
+                type="button"
+                className="imdm-button imdm-button--solid"
+                onClick={submitRegionVerification}
+              >
+                Verify And Sign In
               </button>
             </div>
           </div>

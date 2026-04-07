@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AvatarUploader from "@/components/AvatarUploader";
-import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from "@/lib/profile-storage";
+import {
+  loadStoredProfile,
+  loadStoredSession,
+  saveStoredProfile,
+  type ProfileRecord,
+} from "@/lib/profile-storage";
 
 function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -25,10 +30,21 @@ function fileToDataUrl(file: File) {
 
 export default function AccountPage() {
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    setProfile(loadStoredProfile());
+    const existingProfile = loadStoredProfile();
+    const existingSession = loadStoredSession();
+
+    setProfile(existingProfile);
+    setIsSignedIn(
+      Boolean(
+        existingProfile &&
+          existingSession &&
+          existingSession.email === existingProfile.email,
+      ),
+    );
   }, []);
 
   return (
@@ -49,7 +65,7 @@ export default function AccountPage() {
           </Link>
         </div>
 
-        {profile ? (
+        {profile && isSignedIn ? (
           <>
             <div className="imdm-account-shell__summary">
               <p className="imdm-account-shell__name">{profile.name}</p>
@@ -90,14 +106,21 @@ export default function AccountPage() {
           </>
         ) : (
           <section className="imdm-account-shell__empty">
-            <p className="imdm-eyebrow">Profile Missing</p>
-            <h2>Create your homepage profile first.</h2>
+            <p className="imdm-eyebrow">
+              {profile ? "Sign In Required" : "Profile Missing"}
+            </p>
+            <h2>
+              {profile
+                ? "Sign in on the homepage before you manage your profile photo."
+                : "Create your homepage profile first."}
+            </h2>
             <p>
-              The avatar uploader attaches to the account you create from the home
-              page circle.
+              {profile
+                ? "The account page only opens fully after the current session is signed in."
+                : "The avatar uploader attaches to the account you create from the home page circle."}
             </p>
             <Link href="/" className="imdm-button imdm-button--solid">
-              Go Create Profile
+              {profile ? "Go Sign In" : "Go Create Profile"}
             </Link>
           </section>
         )}
