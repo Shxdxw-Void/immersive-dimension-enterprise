@@ -191,16 +191,28 @@ export default function HomeExperience() {
       return;
     }
 
-    const handleBeforeUnload = () => {
+    const handleExit = () => {
       clearStoredSession();
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", handleExit);
+    window.addEventListener("pagehide", handleExit);
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleExit);
+      window.removeEventListener("pagehide", handleExit);
     };
   }, [session]);
+
+  useEffect(() => {
+    const shouldLockScroll = isRegisterOpen || isSignInOpen || isRegionVerifyOpen;
+
+    document.body.style.overflow = shouldLockScroll ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isRegisterOpen, isSignInOpen, isRegionVerifyOpen]);
 
   const activeTone = useMemo(
     () =>
