@@ -400,6 +400,29 @@ export default function HomeExperience() {
         <header className="border-b border-white/10 bg-[#070611]/92">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
             <div className="imdm-header__left">
+              <a href="#home" className="text-lg font-semibold tracking-wide text-white">
+                ImmersiveDimensions
+              </a>
+            </div>
+
+            <nav
+              className="hidden items-center gap-6 md:flex"
+              aria-label="Homepage sections"
+            >
+              {NAV_ITEMS.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="text-sm text-white/70 transition hover:text-white"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+
+            <div className="imdm-header__actions">
+              {session ? <span className="imdm-session-pill">Signed In</span> : null}
+
               {profile && session ? (
                 <div className="imdm-profile-anchor">
                   <button
@@ -449,63 +472,28 @@ export default function HomeExperience() {
                         </div>
                       </div>
                       <div className="imdm-profile-card__actions">
-                        {session ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setForm(profile);
-                                setFormError("");
-                                setNameFieldError("");
-                                setIsRegisterOpen(true);
-                                setIsProfileOpen(false);
-                              }}
-                              className="imdm-profile-card__button"
-                            >
-                              Customize Profile
-                            </button>
-                            <Link href="/account" className="imdm-profile-card__link">
-                              Manage Photo
-                            </Link>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={openSignIn}
-                            className="imdm-profile-card__button"
-                          >
-                            Sign In To Continue
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm(profile);
+                            setFormError("");
+                            setNameFieldError("");
+                            setIsRegisterOpen(true);
+                            setIsProfileOpen(false);
+                          }}
+                          className="imdm-profile-card__button"
+                        >
+                          Customize Profile
+                        </button>
+                        <Link href="/account" className="imdm-profile-card__link">
+                          Manage Photo
+                        </Link>
                       </div>
                     </aside>
                   ) : null}
                 </div>
               ) : null}
-
-              {session ? <span className="imdm-session-pill">Signed In</span> : null}
-
-              <a href="#home" className="text-lg font-semibold tracking-wide text-white">
-                ImmersiveDimensions
-              </a>
             </div>
-
-            <nav
-              className="hidden items-center gap-6 md:flex"
-              aria-label="Homepage sections"
-            >
-              {NAV_ITEMS.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="text-sm text-white/70 transition hover:text-white"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-
-            <div />
           </div>
         </header>
 
