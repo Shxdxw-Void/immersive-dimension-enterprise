@@ -483,6 +483,8 @@ export default function HomeExperience() {
                 </div>
               ) : null}
 
+              {session ? <span className="imdm-session-pill">Signed In</span> : null}
+
               <a href="#home" className="text-lg font-semibold tracking-wide text-white">
                 ImmersiveDimensions
               </a>
@@ -529,13 +531,15 @@ export default function HomeExperience() {
                 >
                   View Showcase
                 </a>
-                <button
-                  type="button"
-                  onClick={profile ? (session ? () => {} : openSignIn) : openRegister}
-                  className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-center font-medium text-white transition hover:bg-white/10"
-                >
-                  {profile ? (session ? "Signed In" : "Sign In") : "Register Your Profile"}
-                </button>
+                {!session ? (
+                  <button
+                    type="button"
+                    onClick={profile ? openSignIn : openRegister}
+                    className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-center font-medium text-white transition hover:bg-white/10"
+                  >
+                    {profile ? "Sign In" : "Register Your Profile"}
+                  </button>
+                ) : null}
               </div>
             </div>
 
