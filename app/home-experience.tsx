@@ -157,6 +157,8 @@ export default function HomeExperience() {
       } else {
         clearStoredSession();
         setSession(null);
+        setIsProfileOpen(false);
+        setIsSignInOpen(false);
         setIsRegisterOpen(true);
         return;
       }
@@ -166,6 +168,9 @@ export default function HomeExperience() {
       } else {
         clearStoredSession();
         setSession(null);
+        setIsProfileOpen(false);
+        setIsRegisterOpen(false);
+        setIsSignInOpen(true);
       }
     };
 
@@ -181,6 +186,22 @@ export default function HomeExperience() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    const handleBeforeUnload = () => {
+      clearStoredSession();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [session]);
+
   const activeTone = useMemo(
     () =>
       PROFILE_TONES.find(
@@ -189,7 +210,6 @@ export default function HomeExperience() {
     [form.tone, isRegisterOpen, profile?.tone],
   );
 
-  const headerActionLabel = profile ? (session ? null : "Sign In") : "Get Started";
   const profileInitials = getProfileInitials(profile?.name ?? form.name ?? "ID");
 
   function updateField<Key extends keyof ProfileRecord>(
@@ -368,7 +388,7 @@ export default function HomeExperience() {
         <header className="border-b border-white/10 bg-[#070611]/92">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
             <div className="imdm-header__left">
-              {profile ? (
+              {profile && session ? (
                 <div className="imdm-profile-anchor">
                   <button
                     type="button"
@@ -471,15 +491,7 @@ export default function HomeExperience() {
               ))}
             </nav>
 
-            {headerActionLabel ? (
-              <button
-                type="button"
-                onClick={headerActionLabel === "Sign In" ? openSignIn : openRegister}
-                className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-neutral-950 shadow-lg transition hover:scale-[1.02]"
-              >
-                {headerActionLabel}
-              </button>
-            ) : null}
+            <div />
           </div>
         </header>
 
@@ -587,8 +599,14 @@ export default function HomeExperience() {
               <div>
                 <p className="imdm-eyebrow">Register Account</p>
                 <h2>Create your profile before you keep building the site.</h2>
+                {!session ? (
+                  <p className="imdm-verify-copy">
+                    You must register and create an account before you can use the
+                    website.
+                  </p>
+                ) : null}
               </div>
-              {profile ? (
+              {profile && session ? (
                 <button
                   type="button"
                   className="imdm-modal__close"
@@ -695,17 +713,25 @@ export default function HomeExperience() {
               <div>
                 <p className="imdm-eyebrow">Sign In</p>
                 <h2>Sign in with your email and password.</h2>
+                {!session ? (
+                  <p className="imdm-verify-copy">
+                    You already have an account on this device, so you must sign
+                    in to continue.
+                  </p>
+                ) : null}
               </div>
-              <button
-                type="button"
-                className="imdm-modal__close"
-                onClick={() => {
-                  setSignInError("");
-                  setIsSignInOpen(false);
-                }}
-              >
-                Close
-              </button>
+              {session ? (
+                <button
+                  type="button"
+                  className="imdm-modal__close"
+                  onClick={() => {
+                    setSignInError("");
+                    setIsSignInOpen(false);
+                  }}
+                >
+                  Close
+                </button>
+              ) : null}
             </div>
 
             <div className="imdm-form-grid imdm-form-grid--stacked">
