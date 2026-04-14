@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Immersive Dimensions",
@@ -22,9 +23,12 @@ export default function Home() {
           connection come to life.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
-          <button className="rounded-2xl bg-white px-6 py-3 font-semibold text-black transition hover:opacity-80">
+          <Link
+            href="/explore"
+            className="rounded-2xl bg-white px-6 py-3 font-semibold text-black transition hover:opacity-80"
+          >
             Start Exploring
-          </button>
+          </Link>
           <button className="rounded-2xl border border-white px-6 py-3 transition hover:bg-white hover:text-black">
             Join Community
           </button>

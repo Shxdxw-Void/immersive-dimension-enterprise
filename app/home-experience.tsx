@@ -34,7 +34,6 @@ const NAV_ITEMS = [
   { label: "Home", href: "#home" },
   { label: "Features", href: "#features" },
   { label: "Showcase", href: "#showcase" },
-  { label: "Pricing", href: "#pricing" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -501,9 +500,6 @@ export default function HomeExperience() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.28),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.2),transparent_32%)]" />
           <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-2 lg:items-center lg:px-8 lg:py-28">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-white/15 bg-white/5 px-4 py-1 text-xs uppercase tracking-[0.2em] text-white/70">
-                Dependable website foundation
-              </p>
               <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
                 A strong layout that feels premium and stays easy to manage.
               </h1>

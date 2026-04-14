@@ -10,7 +10,7 @@ const features = [
     body: "A clean hero section with clear calls to action and room for your strongest message.",
   },
   {
-    title: "Dependable structure",
+    title: "Flexible structure",
     body: "A simple section flow that is easy to maintain, expand, and adapt as your site grows.",
   },
   {
@@ -23,27 +23,6 @@ const showcase = [
   "Immersive product demos",
   "Interactive environments",
   "Client project highlights",
-];
-
-const pricing = [
-  {
-    name: "Starter",
-    price: "$49",
-    description: "Great for a simple launch page or creator profile.",
-    items: ["Core sections", "Responsive layout", "Email CTA"],
-  },
-  {
-    name: "Pro",
-    price: "$149",
-    description: "Ideal for a polished business site with trust-building sections.",
-    items: ["Everything in Starter", "Showcase grid", "Testimonials", "FAQ"],
-  },
-  {
-    name: "Studio",
-    price: "Custom",
-    description: "For immersive brand experiences, advanced interaction, and custom sections.",
-    items: ["Custom layout", "Premium motion", "Advanced media blocks"],
-  },
 ];
 
 export default function HomeSecondarySections({
@@ -111,45 +90,6 @@ export default function HomeSecondarySections({
               </article>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section id="pricing" className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
-        <div className="max-w-2xl">
-          <p className="text-sm uppercase tracking-[0.2em] text-white/50">
-            Pricing
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
-            Simple tiers you can customize later.
-          </h2>
-        </div>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {pricing.map((tier) => (
-            <article
-              key={tier.name}
-              className="blur-heavy rounded-[2rem] border border-white/10 bg-white/5 p-7"
-              data-heavy="true"
-            >
-              <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-2xl font-semibold">{tier.name}</h3>
-                <span className="text-lg font-medium text-white/72">
-                  {tier.price}
-                </span>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-white/68">
-                {tier.description}
-              </p>
-              <ul className="mt-6 space-y-3 text-sm text-white/76">
-                {tier.items.map((item) => (
-                  <li key={item} className="flex items-center gap-3">
-                    <span className="h-2 w-2 rounded-full bg-white/70" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
         </div>
       </section>
 
