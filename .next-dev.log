@@ -8,16 +8,8 @@
 - Environments: .env.local
 
 ✓ Starting...
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
-
 Creating turbopack project {
   dir: 'C:\\Users\\Aydyn\\OneDrive\\Immersive Dimensions\\immersive-dimension-enterprise',
   testMode: true
 }
-✓ Ready in 3.4s
-○ Compiling / ...
- GET / 200 in 10.5s (compile: 9.5s, render: 1020ms)
- GET / 200 in 171ms (compile: 11ms, render: 161ms)
+✓ Ready in 2.1s
