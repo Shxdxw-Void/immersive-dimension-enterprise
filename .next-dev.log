@@ -13,3 +13,4 @@ Creating turbopack project {
   testMode: true
 }
 ✓ Ready in 2.1s
+ GET / 200 in 2.8s (compile: 2.3s, render: 457ms)
